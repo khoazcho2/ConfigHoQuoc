@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMNI CRYPTO v2 · Hybrid PQC Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<style>
+:root {
+    --bg-main: #04070d;
+    --bg-panel: rgba(14, 22, 36, 0.65);
+    --bg-input: rgba(2, 5, 11, 0.85);
+    --primary: #00e6b8;
+    --primary-dim: #00997a;
+    --secondary: #9d5cff;
+    --text: #d6e6e2;
+    --text-dim: #5f7a82;
+    --danger: #ff4d6d;
+    --gold: #ffcc66;
+    --border: rgba(0, 230, 184, 0.16);
+    --radius: 14px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    background: var(--bg-main);
+    background-image:
+        radial-gradient(ellipse 900px 500px at 20% -10%, rgba(0, 230, 184, 0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 900px 500px at 90% 110%, rgba(157, 92, 255, 0.10) 0%, transparent 60%);
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 20px;
+    color: var(--text);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(0,230,184,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(0,230,184,0.035) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 30%, transparent 90%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 30%, transparent 90%);
+    pointer-events: none; z-index: 0;
+}
+.wrap {
+    max-width: 1100px; margin: 0 auto;
+    background: rgba(6, 10, 20, 0.88);
+    backdrop-filter: blur(22px);
+    border-radius: 24px; border: 1px solid var(--border);
+    padding: 34px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.03);
+    position: relative; overflow: hidden; z-index: 1;
+    animation: wrapIn .7s cubic-bezier(.16,1,.3,1);
+}
+@keyframes wrapIn { from { opacity:0; transform: translateY(18px) scale(.99);} to {opacity:1; transform:none;} }
+@media (max-width: 640px) { body { padding: 10px; } .wrap { padding: 20px 16px; border-radius: 18px; } }
+
+.icon { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vertical-align:-3px; flex-shrink:0; }
+
+.header { text-align:center; margin-bottom: 20px; }
+.logo-mark { width:56px; height:56px; margin:0 auto 12px; }
+.logo-mark svg { width:100%; height:100%; filter: drop-shadow(0 0 14px rgba(0,230,184,.5)); animation: logoPulse 3.2s ease-in-out infinite; }
+@keyframes logoPulse { 0%,100%{filter:drop-shadow(0 0 10px rgba(0,230,184,.35));} 50%{filter:drop-shadow(0 0 22px rgba(157,92,255,.55));} }
+.header h1 { font-size:30px; font-weight:700; letter-spacing:-.5px; background:linear-gradient(135deg,var(--primary),var(--secondary) 60%,var(--gold)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:6px; }
+.header p { color:var(--text-dim); font-size:13px; font-family:'JetBrains Mono',monospace; }
+
+/* Dải trạng thái backend: nói thật module nào đang chạy */
+.backend-bar { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:22px; }
+.chip { font-family:'JetBrains Mono',monospace; font-size:11px; padding:6px 11px; border-radius:20px; border:1px solid var(--border); background:rgba(0,0,0,.4); color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+.chip .dot { width:7px; height:7px; border-radius:50%; background:var(--text-dim); }
+.chip.ok .dot { background:var(--primary); box-shadow:0 0 8px var(--primary); }
+.chip.warn .dot { background:var(--gold); box-shadow:0 0 8px var(--gold); }
+.chip.bad .dot { background:var(--danger); box-shadow:0 0 8px var(--danger); }
+.chip.ok { color:var(--primary); border-color:rgba(0,230,184,.35); }
+.chip.warn { color:var(--gold); border-color:rgba(255,204,102,.35); }
+.chip.bad { color:var(--danger); border-color:rgba(255,77,109,.35); }
+
+.mode-switch { display:flex; justify-content:center; gap:4px; margin-bottom:26px; background:rgba(0,0,0,.35); padding:5px; border-radius:12px; width:fit-content; margin-inline:auto; flex-wrap:wrap; border:1px solid var(--border); }
+.mode-btn { background:transparent; border:none; color:var(--text-dim); font-family:'Space Grotesk'; font-weight:600; font-size:13px; padding:10px 18px; border-radius:8px; cursor:pointer; transition:color .25s; display:flex; align-items:center; gap:7px; position:relative; isolation:isolate; }
+.mode-btn.active { color:#04070d; }
+.mode-btn .pill-bg { position:absolute; inset:0; border-radius:8px; background:linear-gradient(135deg,var(--primary),var(--secondary)); z-index:-1; opacity:0; transition:opacity .25s; }
+.mode-btn.active .pill-bg { opacity:1; }
+.mode-btn:hover:not(.active) { color:var(--text); }
+.mode-btn:focus-visible, .btn:focus-visible, textarea:focus-visible, input:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+
+.panel { animation: panelIn .35s cubic-bezier(.16,1,.3,1); }
+.panel[hidden] { display:none; }
+@keyframes panelIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+.input-zone { margin-bottom:15px; }
+.label { font-size:11.5px; text-transform:uppercase; letter-spacing:1.3px; color:var(--text-dim); margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:7px; }
+textarea { width:100%; min-height:130px; background:var(--bg-input); border:1px solid var(--border); border-radius:12px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:12.5px; padding:16px; resize:vertical; outline:none; transition:border .25s, box-shadow .25s; line-height:1.55; }
+textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(0,230,184,.12); }
+textarea.dropping { border-color:var(--gold); box-shadow:0 0 0 3px rgba(255,204,102,.2); }
+input[type=text], input[type=password] { width:100%; background:var(--bg-input); border:1px solid var(--border); border-radius:12px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:14px; padding:14px 16px; outline:none; transition:border .25s; }
+input:focus { border-color:var(--secondary); box-shadow:0 0 0 3px rgba(157,92,255,.12); }
+.pass-zone { margin-bottom:20px; }
+.pass-row { display:flex; gap:8px; align-items:center; }
+.pass-row input { flex:1; }
+.icon-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; color:var(--text-dim); padding:12px; cursor:pointer; transition:.2s; display:flex; }
+.icon-btn:hover { color:var(--primary); border-color:rgba(0,230,184,.35); }
+
+.meter { height:5px; border-radius:4px; background:rgba(255,255,255,.06); margin-top:9px; overflow:hidden; }
+.meter i { display:block; height:100%; width:0; border-radius:4px; transition:width .35s, background .35s; }
+.meter-note { font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); margin-top:6px; }
+
+.controls { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:20px 0; }
+.btn { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; padding:11px 20px; cursor:pointer; transition:all .22s; display:inline-flex; align-items:center; gap:8px; position:relative; overflow:hidden; }
+.btn:hover:not(:disabled) { background:rgba(255,255,255,.09); transform:translateY(-2px); border-color:rgba(0,230,184,.35); }
+.btn:active:not(:disabled) { transform:translateY(0) scale(.97); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-quantum { background:linear-gradient(135deg,var(--primary),var(--secondary)); border-color:transparent; color:#04070d; font-size:14.5px; padding:13px 28px; box-shadow:0 4px 18px rgba(0,230,184,.18); }
+.btn-quantum:hover:not(:disabled) { box-shadow:0 10px 30px rgba(0,230,184,.4); }
+.btn-danger { border-color:rgba(255,77,109,.3); color:var(--danger); }
+
+.status-bar { display:flex; justify-content:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.pill { background:rgba(0,0,0,.4); border:1px solid var(--border); padding:8px 15px; border-radius:20px; font-size:12.5px; color:var(--text-dim); display:flex; align-items:center; gap:7px; transition:border-color .4s, box-shadow .4s; }
+.pill em { color:var(--primary); font-style:normal; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.pill.certain { border-color:var(--gold); box-shadow:0 0 16px rgba(255,204,102,.25); }
+.pill.certain em { color:var(--gold); }
+
+/* Chuỗi lớp bóc tách: bấm để xem trạng thái trung gian */
+.chain { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.chain-node { font-family:'JetBrains Mono',monospace; font-size:11px; padding:5px 10px; border-radius:8px; border:1px solid var(--border); background:rgba(0,0,0,.35); color:var(--text-dim); cursor:pointer; transition:.2s; }
+.chain-node:hover { color:var(--primary); border-color:rgba(0,230,184,.4); }
+.chain-node.active { color:#04070d; background:linear-gradient(135deg,var(--primary),var(--secondary)); border-color:transparent; }
+
+.output-zone { background:var(--bg-panel); border:1px solid var(--border); border-radius:16px; padding:20px; }
+.out-final { background:rgba(0,0,0,.55); border:1px solid var(--primary); border-radius:12px; padding:16px; min-height:100px; font-family:'JetBrains Mono',monospace; font-size:12.5px; white-space:pre-wrap; word-break:break-word; color:var(--primary); line-height:1.55; margin-bottom:15px; max-height:340px; overflow:auto; }
+.out-final.fail { border-color:var(--danger); color:var(--danger); animation:failFlash .5s ease; }
+@keyframes failFlash { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
+.out-final.okflash { animation:successFlash .7s ease; }
+@keyframes successFlash { 0%{box-shadow:0 0 0 rgba(0,230,184,0);} 30%{box-shadow:0 0 34px rgba(0,230,184,.55);} 100%{box-shadow:0 0 0 rgba(0,230,184,0);} }
+
+.log-area { background:rgba(0,0,0,.75); border-radius:10px; padding:12px; max-height:160px; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-dim); }
+.log-area .step { margin-bottom:5px; padding:5px 0 5px 10px; border-left:2px solid var(--secondary); animation:stepIn .35s; }
+.log-area .step span { color:var(--secondary); font-weight:700; }
+.log-area .step.ok { border-left-color:var(--primary); } .log-area .step.ok span { color:var(--primary); }
+.log-area .step.fail { border-left-color:var(--danger); } .log-area .step.fail span { color:var(--danger); }
+@keyframes stepIn { from{opacity:0; transform:translateX(-6px);} to{opacity:1; transform:none;} }
+
+.toast { position:fixed; bottom:24px; right:24px; background:rgba(10,16,28,.97); backdrop-filter:blur(10px); border:1px solid var(--primary); color:var(--primary); padding:13px 20px; border-radius:12px; font-weight:600; font-size:13.5px; box-shadow:0 12px 32px rgba(0,0,0,.5); transform:translateX(420px); transition:transform .45s cubic-bezier(.16,1,.3,1); z-index:9999; max-width:min(340px,90vw); }
+.toast.show { transform:none; }
+.toast.err { border-color:var(--danger); color:var(--danger); }
+
+.note { font-size:12.5px; color:var(--text-dim); line-height:1.65; background:rgba(157,92,255,.07); border:1px solid rgba(157,92,255,.22); border-radius:10px; padding:13px 15px; margin-bottom:18px; display:flex; gap:10px; }
+.note svg { flex-shrink:0; margin-top:2px; color:var(--secondary); }
+.note b { color:var(--secondary); }
+.note.warn { background:rgba(255,204,102,.07); border-color:rgba(255,204,102,.25); }
+.note.warn svg, .note.warn b { color:var(--gold); }
+
+.grid2 { display:grid; grid-template-columns:1fr; gap:16px; }
+@media (min-width:760px) { .grid2 { grid-template-columns:1fr 1fr; } }
+.card { background:var(--bg-panel); border:1px solid var(--border); border-radius:14px; padding:16px; }
+.keybox { font-size:10.5px; word-break:break-all; max-height:104px; overflow:auto; background:rgba(0,0,0,.5); padding:9px; border-radius:8px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); }
+.keybox.filled { color:var(--primary); background:rgba(0,230,184,.05); }
+.row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.opt-row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12.5px; color:var(--text-dim); margin-bottom:14px; }
+.opt-row label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+select { background:var(--bg-input); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 10px; font-family:'JetBrains Mono',monospace; font-size:12px; }
+input[type=checkbox] { accent-color: var(--primary); width:15px; height:15px; }
+
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(0,230,184,.3); border-radius:10px; }
+
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00e6b8"/><stop offset="100%" stop-color="#9d5cff"/></linearGradient>
+</defs>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2l8 3.5v6c0 5-3.4 8.6-8 10.5-4.6-1.9-8-5.5-8-10.5v-6L12 2z"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.8 12.2L20 3M15.5 7.5L19 4M18 11l3-3"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V7M7 12l5-5 5 5M4 21h16"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v14M7 12l5 5 5-5M4 21h16"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+<symbol id="i-dice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M12 1v3M12 20v3M4.2 4.2l2 2M17.8 17.8l2 2M1 12h3M20 12h3M4.2 19.8l2-2M17.8 6.2l2-2"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2l10 6-10 6L2 8l10-6z"/><path d="M2 14l10 6 10-6"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+<symbol id="i-terminal" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
+<symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 21l3-1 11-11a2.1 2.1 0 0 0-3-3L3 17z"/><path d="M14 6l4 4"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="header">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" stroke="url(#logoGrad)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield"/><use href="#i-key" transform="translate(6,6) scale(0.55)"/></svg></div>
+    <h1>OMNI CRYPTO v2</h1>
+    <p>Bóc tách nhiều lớp · AES-256-GCM (Argon2id) · Hybrid ML-KEM-1024 + ML-DSA-87</p>
+  </div>
+
+  <!-- Trạng thái backend thật: không tô vẽ thứ chưa tải được -->
+  <div class="backend-bar" id="backend-bar">
+    <div class="chip" id="chip-kdf"><span class="dot"></span> KDF: đang tải…</div>
+    <div class="chip" id="chip-pqc"><span class="dot"></span> PQC: đang tải…</div>
+    <div class="chip" id="chip-wc"><span class="dot"></span> WebCrypto: kiểm tra…</div>
+  </div>
+
+  <div class="mode-switch" role="tablist">
+    <button class="mode-btn active" data-mode="decode" role="tab"><span class="pill-bg"></span><svg class="icon"><use href="#i-search"/></svg> Bóc tách</button>
+    <button class="mode-btn" data-mode="aes" role="tab"><span class="pill-bg"></span><svg class="icon"><use href="#i-lock"/></svg> AES-256</button>
+    <button class="mode-btn" data-mode="pqc" role="tab"><span class="pill-bg"></span><svg class="icon"><use href="#i-cpu"/></svg> PQC Hybrid</button>
+  </div>
+
+  <!-- ================= BÓC TÁCH ================= -->
+  <section id="mode-decode" class="panel">
+    <div class="input-zone">
+      <div class="label"><svg class="icon"><use href="#i-inbox"/></svg> Dữ liệu cần bóc tách</div>
+      <textarea id="dec-in" placeholder="Dán chuỗi mã hoá/encode, hoặc kéo thả file vào đây…"></textarea>
+    </div>
+    <div class="pass-zone">
+      <div class="label"><svg class="icon"><use href="#i-key"/></svg> Mật khẩu (chỉ cần khi là gói OMNI)</div>
+      <input type="password" id="dec-pass" placeholder="Bỏ trống nếu chỉ là Base64/Hex/Base32/Morse/gzip…" autocomplete="off">
+    </div>
+    <div class="controls">
+      <button class="btn btn-quantum" id="btn-run"><svg class="icon"><use href="#i-bolt"/></svg> Bóc tách toàn bộ</button>
+      <button class="btn" id="btn-clear"><svg class="icon"><use href="#i-trash"/></svg> Xoá</button>
+      <button class="btn" id="btn-sample"><svg class="icon"><use href="#i-file"/></svg> Mẫu</button>
+      <button class="btn" id="btn-file"><svg class="icon"><use href="#i-upload"/></svg> Tải file</button>
+      <input type="file" id="dec-file" hidden>
+    </div>
+    <div class="status-bar">
+      <div class="pill"><svg class="icon"><use href="#i-layers"/></svg> Số lớp: <em id="st-layers">0</em></div>
+      <div class="pill" id="st-conf-pill"><svg class="icon"><use href="#i-cpu"/></svg> Độ tin cậy: <em id="st-conf">—</em></div>
+      <div class="pill"><svg class="icon"><use href="#i-terminal"/></svg> Nội dung: <em id="st-lang">chờ</em></div>
+    </div>
+    <div class="output-zone">
+      <div class="label"><svg class="icon"><use href="#i-layers"/></svg> Chuỗi lớp</div>
+      <div class="chain" id="chain"><span class="chain-node active">gốc</span></div>
+      <div class="label"><svg class="icon"><use href="#i-check"/></svg> Kết quả</div>
+      <div class="out-final" id="dec-out">[ chờ dữ liệu ]</div>
+      <div class="label"><svg class="icon"><use href="#i-terminal"/></svg> Nhật ký</div>
+      <div class="log-area" id="log"><div class="step">Sẵn sàng.</div></div>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn" id="btn-copy"><svg class="icon"><use href="#i-copy"/></svg> Sao chép</button>
+        <button class="btn" id="btn-save"><svg class="icon"><use href="#i-download"/></svg> Tải kết quả</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AES ================= -->
+  <section id="mode-aes" class="panel" hidden>
+    <div class="note"><svg class="icon"><use href="#i-info"/></svg><div>Gói <b>OMNI2</b>: AES-256-GCM, khoá dẫn xuất bằng <b>Argon2id</b> (m=64MB, t=3, p=1), toàn bộ header được ký vào AAD nên không thể sửa tham số mà không hỏng xác thực.</div></div>
+    <div class="input-zone">
+      <div class="label"><svg class="icon"><use href="#i-inbox"/></svg> Nội dung</div>
+      <textarea id="aes-in" placeholder="Văn bản cần mã hoá, hoặc dán gói OMNI2… để giải mã"></textarea>
+    </div>
+    <div class="pass-zone">
+      <div class="label"><svg class="icon"><use href="#i-key"/></svg> Mật khẩu</div>
+      <div class="pass-row">
+        <input type="password" id="aes-pass" placeholder="Mật khẩu mạnh" autocomplete="new-password">
+        <button class="icon-btn" id="aes-eye" title="Hiện/ẩn"><svg class="icon"><use href="#i-eye"/></svg></button>
+        <button class="icon-btn" id="aes-gen" title="Sinh mật khẩu ngẫu nhiên"><svg class="icon"><use href="#i-dice"/></svg></button>
+      </div>
+      <div class="meter"><i id="pw-bar"></i></div>
+      <div class="meter-note" id="pw-note">—</div>
+    </div>
+    <div class="opt-row">
+      <label><input type="checkbox" id="aes-compress" checked> Nén trước khi mã hoá</label>
+      <label>Cường độ KDF
+        <select id="aes-kdf">
+          <option value="interactive">Nhanh (32MB / t=2)</option>
+          <option value="balanced" selected>Cân bằng (64MB / t=3)</option>
+          <option value="paranoid">Tối đa (256MB / t=4)</option>
+        </select>
+      </label>
+    </div>
+    <div class="controls">
+      <button class="btn btn-quantum" id="aes-enc"><svg class="icon"><use href="#i-lock"/></svg> Mã hoá</button>
+      <button class="btn" id="aes-dec"><svg class="icon"><use href="#i-key"/></svg> Giải mã</button>
+      <button class="btn" id="aes-file-enc"><svg class="icon"><use href="#i-upload"/></svg> Mã hoá file</button>
+      <input type="file" id="aes-file" hidden>
+    </div>
+    <div class="output-zone">
+      <div class="label"><svg class="icon"><use href="#i-check"/></svg> Kết quả</div>
+      <div class="out-final" id="aes-out">[ chờ ]</div>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn" id="aes-copy"><svg class="icon"><use href="#i-copy"/></svg> Sao chép</button>
+        <button class="btn" id="aes-save"><svg class="icon"><use href="#i-download"/></svg> Tải xuống</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PQC ================= -->
+  <section id="mode-pqc" class="panel" hidden>
+    <div class="note warn" id="pqc-note"><svg class="icon"><use href="#i-info"/></svg><div>Chế độ lai: khoá AES = <b>HKDF-SHA512</b>(bí mật ML-KEM-1024 ‖ khoá từ mật khẩu). Kẻ tấn công phải phá <b>cả hai</b> mới đọc được. Chữ ký <b>ML-DSA-87</b> ký lên header + ciphertext.</div></div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="label"><svg class="icon"><use href="#i-key"/></svg> Cặp khoá ML-KEM-1024</div>
+        <div class="keybox" id="kem-pub">chưa có khoá công khai</div>
+        <div class="row">
+          <button class="btn" id="kem-gen"><svg class="icon"><use href="#i-refresh"/></svg> Sinh khoá</button>
+          <button class="btn" id="kem-exp"><svg class="icon"><use href="#i-download"/></svg> Xuất</button>
+          <button class="btn" id="kem-imp"><svg class="icon"><use href="#i-upload"/></svg> Nhập</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label"><svg class="icon"><use href="#i-sign"/></svg> Cặp khoá ML-DSA-87</div>
+        <div class="keybox" id="dsa-pub">chưa có khoá công khai</div>
+        <div class="row">
+          <button class="btn" id="dsa-gen"><svg class="icon"><use href="#i-refresh"/></svg> Sinh khoá</button>
+          <button class="btn" id="dsa-exp"><svg class="icon"><use href="#i-download"/></svg> Xuất</button>
+          <button class="btn" id="dsa-imp"><svg class="icon"><use href="#i-upload"/></svg> Nhập</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-zone" style="margin-top:18px">
+      <div class="label"><svg class="icon"><use href="#i-inbox"/></svg> Nội dung</div>
+      <textarea id="pqc-in" placeholder="Văn bản cần mã hoá, hoặc dán gói OMNI2 hybrid…"></textarea>
+    </div>
+    <div class="pass-zone">
+      <div class="label"><svg class="icon"><use href="#i-key"/></svg> Mật khẩu (lớp thứ hai)</div>
+      <input type="password" id="pqc-pass" placeholder="Bắt buộc — đây là nửa còn lại của khoá" autocomplete="new-password">
+    </div>
+    <div class="opt-row">
+      <label><input type="checkbox" id="pqc-sign" checked> Ký bằng ML-DSA-87</label>
+      <label><input type="checkbox" id="pqc-compress" checked> Nén</label>
+    </div>
+    <div class="controls">
+      <button class="btn btn-quantum" id="pqc-enc"><svg class="icon"><use href="#i-lock"/></svg> Mã hoá lai</button>
+      <button class="btn" id="pqc-dec"><svg class="icon"><use href="#i-key"/></svg> Giải mã lai</button>
+      <button class="btn btn-danger" id="pqc-wipe"><svg class="icon"><use href="#i-trash"/></svg> Xoá khoá khỏi bộ nhớ</button>
+    </div>
+    <div class="output-zone">
+      <div class="label"><svg class="icon"><use href="#i-check"/></svg> Kết quả</div>
+      <div class="out-final" id="pqc-out">[ chờ ]</div>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn" id="pqc-copy"><svg class="icon"><use href="#i-copy"/></svg> Sao chép</button>
+        <button class="btn" id="pqc-save"><svg class="icon"><use href="#i-download"/></svg> Tải xuống</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="hidden-import" hidden>
+
+<script type="module">
+/* =====================================================================
+   OMNI CRYPTO v2
+   Nguyên tắc: không giả lập thuật toán. Module nào không tải được thì
+   tắt tính năng đó và báo rõ trên thanh trạng thái.
+   ===================================================================== */
+
+/* ---------- 0. Tải backend mật mã (có dự phòng) ---------- */
+let mlKem = null, mlDsa = null, argon2id = null;
+let DSA_ARG_ORDER = null;          // 'sk-first' | 'msg-first' — dò bằng self-test
+const CDN = {
+  pqc: ['https://esm.sh/@noble/post-quantum/ml-kem',
+        'https://esm.sh/@noble/post-quantum@0.4.0/ml-kem',
+        'https://esm.sh/@noble/post-quantum@0.2.0/ml-kem'],
+  dsa: ['https://esm.sh/@noble/post-quantum/ml-dsa',
+        'https://esm.sh/@noble/post-quantum@0.4.0/ml-dsa',
+        'https://esm.sh/@noble/post-quantum@0.2.0/ml-dsa'],
+  argon: ['https://esm.sh/hash-wasm@4', 'https://esm.sh/hash-wasm']
+};
+
+async function tryImport(urls, pick) {
+  for (const u of urls) {
+    try { const m = await import(/* @vite-ignore */ u); const v = pick(m); if (v) return v; }
+    catch (_) { /* thử URL kế tiếp */ }
+  }
+  return null;
+}
+
+/* ---------- 1. Tiện ích byte ---------- */
+const TE = new TextEncoder();
+const TD = new TextDecoder('utf-8', { fatal: false });
+const bytes = s => TE.encode(s);
+const str = b => TD.decode(b);
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+
+function concat(...parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+function eq(a, b) { // so sánh thời gian gần như cố định
+  if (a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i];
+  return d === 0;
+}
+function b64e(b) { let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+function b64d(s) { const bin = atob(s); const o = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i); return o; }
+const b64uE = b => b64e(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64uD = s => b64d(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4));
+function hexE(b) { return [...b].map(x => x.toString(16).padStart(2, '0')).join(''); }
+function hexD(s) { s = s.replace(/[\s:0x]/gi, ''); const o = new Uint8Array(s.length >> 1); for (let i = 0; i < o.length; i++) o[i] = parseInt(s.substr(i * 2, 2), 16); return o; }
+
+function wipe(arr) { if (arr && arr.fill) arr.fill(0); }   // xoá dấu vết khoá trong RAM
+
+/* ---------- 2. Khởi động + self-test ---------- */
+const chip = (id, cls, text) => {
+  const el = document.getElementById(id);
+  el.className = 'chip ' + cls;
+  el.innerHTML = '<span class="dot"></span> ' + text;
+};
+
+const HAS_WC = !!(crypto && crypto.subtle);
+chip('chip-wc', HAS_WC ? 'ok' : 'bad', HAS_WC ? 'WebCrypto: sẵn sàng' : 'WebCrypto: không có (cần HTTPS/localhost)');
+
+argon2id = await tryImport(CDN.argon, m => m.argon2id);
+chip('chip-kdf', argon2id ? 'ok' : 'warn',
+     argon2id ? 'KDF: Argon2id' : 'KDF: PBKDF2-SHA256 600k (dự phòng)');
+
+mlKem = await tryImport(CDN.pqc, m => m.ml_kem1024);
+mlDsa = await tryImport(CDN.dsa, m => m.ml_dsa87);
+
+/* Self-test PQC: nếu API lệch phiên bản hoặc sai kết quả thì TẮT hẳn,
+   thà không có còn hơn có mà giả. */
+async function selfTestPQC() {
+  if (!mlKem || !mlDsa) return false;
+  try {
+    const k = mlKem.keygen();
+    const { cipherText, sharedSecret } = mlKem.encapsulate(k.publicKey);
+    const ss2 = mlKem.decapsulate(cipherText, k.secretKey);
+    if (!eq(sharedSecret, ss2)) return false;
+
+    const d = mlDsa.keygen(rnd(32));
+    const msg = bytes('omni-selftest');
+    // Dò thứ tự tham số sign() giữa các phiên bản noble
+    for (const order of ['sk-first', 'msg-first']) {
+      try {
+        const sig = order === 'sk-first' ? mlDsa.sign(d.secretKey, msg) : mlDsa.sign(msg, d.secretKey);
+        const ok = order === 'sk-first' ? mlDsa.verify(d.publicKey, msg, sig) : mlDsa.verify(sig, msg, d.publicKey);
+        if (ok === true) { DSA_ARG_ORDER = order; break; }
+      } catch (_) {}
+    }
+    return DSA_ARG_ORDER !== null;
+  } catch (_) { return false; }
+}
+const PQC_OK = await selfTestPQC();
+chip('chip-pqc', PQC_OK ? 'ok' : 'bad',
+     PQC_OK ? 'PQC: ML-KEM-1024 + ML-DSA-87' : 'PQC: không tải được — chế độ lai bị khoá');
+if (!PQC_OK) {
+  document.getElementById('pqc-note').innerHTML =
+    '<svg class="icon"><use href="#i-info"/></svg><div><b>Chế độ lai đang tắt.</b> Không tải được thư viện hậu lượng tử (mất mạng hoặc CDN bị chặn). Dùng chế độ AES-256 để mã hoá bằng mật khẩu.</div>';
+}
+const dsaSign = (sk, msg) => DSA_ARG_ORDER === 'sk-first' ? mlDsa.sign(sk, msg) : mlDsa.sign(msg, sk);
+const dsaVerify = (pk, msg, sig) => DSA_ARG_ORDER === 'sk-first' ? mlDsa.verify(pk, msg, sig) : mlDsa.verify(sig, msg, pk);
+
+/* ---------- 3. KDF + AEAD ---------- */
+const KDF = { ARGON2ID: 1, PBKDF2: 2 };
+const SUITE = { PASSWORD: 1, HYBRID: 2 };
+const PROFILES = {
+  interactive: { m: 32768, t: 2, p: 1 },
+  balanced:    { m: 65536, t: 3, p: 1 },
+  paranoid:    { m: 262144, t: 4, p: 1 }
+};
+const PBKDF2_ITER = 600000;
+
+async function deriveKey(password, salt, kdfId, prm) {
+  if (kdfId === KDF.ARGON2ID) {
+    return await argon2id({
+      password, salt,
+      parallelism: prm.p, iterations: prm.t, memorySize: prm.m,
+      hashLength: 32, outputType: 'binary'
+    });
+  }
+  const base = await crypto.subtle.importKey('raw', bytes(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: prm.iter || PBKDF2_ITER, hash: 'SHA-256' }, base, 256);
+  return new Uint8Array(bits);
+}
+
+async function hkdf(ikm, salt, info, len = 32) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-512', salt, info: bytes(info) }, key, len * 8);
+  return new Uint8Array(bits);
+}
+
+async function aesSeal(key, nonce, aad, plain) {
+  const k = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['encrypt']);
+  return new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 }, k, plain));
+}
+async function aesOpen(key, nonce, aad, ct) {
+  const k = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 }, k, ct));
+}
+
+/* ---------- 4. Định dạng gói OMNI2 ----------
+   MAGIC(5) VER(1) SUITE(1) KDF(1) FLAGS(1)
+   SALT(16) M(4BE) T(1) P(1) NONCE(12)
+   KEMLEN(2BE) KEM… SIGLEN(2BE) SIG…      → toàn bộ phần trên = AAD
+   CIPHERTEXT…
+   FLAGS bit0 = đã nén deflate
+------------------------------------------------------------ */
+const MAGIC = bytes('OMNI2');
+const VER = 2;
+
+function putU32(n) { return new Uint8Array([n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255]); }
+function putU16(n) { return new Uint8Array([n >>> 8 & 255, n & 255]); }
+const getU32 = (b, o) => (b[o] << 24 | b[o + 1] << 16 | b[o + 2] << 8 | b[o + 3]) >>> 0;
+const getU16 = (b, o) => b[o] << 8 | b[o + 1];
+
+function buildHeader({ suite, kdfId, flags, salt, prm, nonce, kemCt, sig }) {
+  return concat(
+    MAGIC, new Uint8Array([VER, suite, kdfId, flags]),
+    salt, putU32(prm.m || prm.iter || 0), new Uint8Array([prm.t || 0, prm.p || 0]),
+    nonce,
+    putU16(kemCt ? kemCt.length : 0), kemCt || new Uint8Array(0),
+    putU16(sig ? sig.length : 0), sig || new Uint8Array(0)
+  );
+}
+
+function parseHeader(buf) {
+  if (buf.length < 47 || !eq(buf.subarray(0, 5), MAGIC)) throw new Error('Không phải gói OMNI2');
+  if (buf[5] !== VER) throw new Error('Phiên bản gói không hỗ trợ: ' + buf[5]);
+  let o = 6;
+  const suite = buf[o++], kdfId = buf[o++], flags = buf[o++];
+  const salt = buf.subarray(o, o += 16);
+  const mOrIter = getU32(buf, o); o += 4;
+  const t = buf[o++], p = buf[o++];
+  const nonce = buf.subarray(o, o += 12);
+  const kemLen = getU16(buf, o); o += 2;
+  const kemCt = buf.subarray(o, o += kemLen);
+  const sigLen = getU16(buf, o); o += 2;
+  const sig = buf.subarray(o, o += sigLen);
+  const aad = buf.subarray(0, o);
+  const ct = buf.subarray(o);
+  const prm = kdfId === KDF.ARGON2ID ? { m: mOrIter, t, p } : { iter: mOrIter };
+  return { suite, kdfId, flags, salt, prm, nonce, kemCt, sig, aad, ct };
+}
+
+/* Ký sau khi đã có ciphertext → phải chừa chỗ chữ ký trong AAD.
+   Cách xử lý: AAD dùng header với SIG rỗng, chữ ký ký lên (headerNoSig ‖ ct). */
+async function seal(plainBytes, { password, kemPubKey, dsaSecKey, compress, profile }) {
+  if (!HAS_WC) throw new Error('Trình duyệt không có WebCrypto');
+  const prof = PROFILES[profile] || PROFILES.balanced;
+  const kdfId = argon2id ? KDF.ARGON2ID : KDF.PBKDF2;
+  const prm = kdfId === KDF.ARGON2ID ? prof : { iter: PBKDF2_ITER };
+  const salt = rnd(16), nonce = rnd(12);
+
+  let data = plainBytes, flags = 0;
+  if (compress && plainBytes.length > 64) {
+    const z = pako.deflate(plainBytes);
+    if (z.length < plainBytes.length) { data = z; flags |= 1; }
+  }
+
+  const pwKey = await deriveKey(password, salt, kdfId, prm);
+  let aesKey = pwKey, kemCt = null;
+
+  if (kemPubKey) {                                   // nhánh lai
+    const { cipherText, sharedSecret } = mlKem.encapsulate(kemPubKey);
+    kemCt = cipherText;
+    aesKey = await hkdf(concat(pwKey, sharedSecret), salt, 'omni2-hybrid-aes256', 32);
+    wipe(sharedSecret);
+  }
+
+  const suite = kemPubKey ? SUITE.HYBRID : SUITE.PASSWORD;
+  const headNoSig = buildHeader({ suite, kdfId, flags, salt, prm, nonce, kemCt, sig: null });
+  const ct = await aesSeal(aesKey, nonce, headNoSig, data);
+  wipe(pwKey); if (aesKey !== pwKey) wipe(aesKey);
+
+  let sig = null;
+  if (dsaSecKey) sig = dsaSign(dsaSecKey, concat(headNoSig, ct));
+
+  const head = buildHeader({ suite, kdfId, flags, salt, prm, nonce, kemCt, sig });
+  // AAD khi mã hoá là headNoSig; khi giải mã ta dựng lại đúng như vậy.
+  return concat(head, ct);
+}
+
+async function unseal(pkg, { password, kemSecKey, dsaPubKey }) {
+  const h = parseHeader(pkg);
+  const headNoSig = buildHeader({
+    suite: h.suite, kdfId: h.kdfId, flags: h.flags, salt: h.salt,
+    prm: h.prm, nonce: h.nonce, kemCt: h.kemCt.length ? h.kemCt : null, sig: null
+  });
+
+  let signature = 'không có';
+  if (h.sig.length) {
+    if (!PQC_OK || !dsaPubKey) signature = 'có chữ ký nhưng chưa xác minh (thiếu khoá công khai)';
+    else signature = dsaVerify(dsaPubKey, concat(headNoSig, h.ct), h.sig) ? 'hợp lệ' : 'KHÔNG HỢP LỆ';
+    if (signature === 'KHÔNG HỢP LỆ') throw new Error('Chữ ký ML-DSA-87 không hợp lệ — gói đã bị sửa');
+  }
+
+  const pwKey = await deriveKey(password, h.salt, h.kdfId, h.prm);
+  let aesKey = pwKey;
+  if (h.suite === SUITE.HYBRID) {
+    if (!PQC_OK) throw new Error('Gói lai nhưng thư viện PQC không khả dụng');
+    if (!kemSecKey) throw new Error('Thiếu khoá bí mật ML-KEM để giải mã');
+    const ss = mlKem.decapsulate(h.kemCt, kemSecKey);
+    aesKey = await hkdf(concat(pwKey, ss), h.salt, 'omni2-hybrid-aes256', 32);
+    wipe(ss);
+  }
+
+  let plain;
+  try { plain = await aesOpen(aesKey, h.nonce, headNoSig, h.ct); }
+  catch (_) { throw new Error('Giải mã thất bại — sai mật khẩu, sai khoá, hoặc gói đã hỏng'); }
+  finally { wipe(pwKey); if (aesKey !== pwKey) wipe(aesKey); }
+
+  if (h.flags & 1) plain = pako.inflate(plain);
+  return { plain, signature, suite: h.suite, kdf: h.kdfId };
+}
+
+/* ---------- 5. Bộ bóc tách nhiều lớp ----------
+   Mỗi vòng: thử mọi codec, chấm điểm kết quả, chỉ đi tiếp nếu điểm tăng.
+   Nhờ vậy không bị "giải mã" nhầm văn bản thường thành rác.
+---------------------------------------------------------------- */
+const B32A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const MORSE = {'.-':'A','-...':'B','-.-.':'C','-..':'D','.':'E','..-.':'F','--.':'G','....':'H','..':'I','.---':'J','-.-':'K','.-..':'L','--':'M','-.':'N','---':'O','.--.':'P','--.-':'Q','.-.':'R','...':'S','-':'T','..-':'U','...-':'V','.--':'W','-..-':'X','-.--':'Y','--..':'Z','-----':'0','.----':'1','..---':'2','...--':'3','....-':'4','.....':'5','-....':'6','--...':'7','---..':'8','----.':'9'};
+
+function shannon(b) {
+  if (!b.length) return 8;
+  const f = new Uint32Array(256);
+  for (let i = 0; i < b.length; i++) f[b[i]]++;
+  let h = 0;
+  for (let i = 0; i < 256; i++) if (f[i]) { const p = f[i] / b.length; h -= p * Math.log2(p); }
+  return h;
+}
+
+const WORDS = ['the','and','function','return','include','import','class','const','http','error','void','public','print','select','from','where','này','được','không','của','một','người','trong'];
+
+/* Điểm 0..100: càng "giống nội dung có nghĩa" càng cao */
+function score(b) {
+  if (!b || !b.length) return 0;
+  let printable = 0, ctrl = 0;
+  for (let i = 0; i < b.length; i++) {
+    const c = b[i];
+    if (c === 9 || c === 10 || c === 13 || (c >= 32 && c < 127)) printable++;
+    else if (c < 32) ctrl++;
+  }
+  const ratio = printable / b.length;
+  const text = ratio > .7 ? str(b).toLowerCase() : '';
+  let s = ratio * 60;
+  s -= (ctrl / b.length) * 40;
+  const h = shannon(b);
+  if (ratio > .85 && h < 5.2) s += 12;              // văn bản thật có entropy thấp
+  if (h > 7.5 && ratio < .5) s -= 5;                // rác/nén
+  if (text) {
+    let hits = 0; for (const w of WORDS) if (text.includes(w)) hits++;
+    s += Math.min(hits * 4, 20);
+    if (/[ăâêôơưđáàảãạéèẻíìúùýợộệ]/.test(text)) s += 6;
+    if (/\s/.test(text)) s += 4;
+  }
+  if (b[0] === 0x1f && b[1] === 0x8b) s += 15;      // gzip: đáng bóc tiếp
+  if (eq(b.subarray(0, 5), MAGIC)) s += 30;         // gói OMNI2
+  return Math.max(0, Math.min(100, s));
+}
+
+const trimmed = b => str(b).trim();
+
+/* Mỗi codec: {id, run(bytes) -> Uint8Array | null} */
+const CODECS = [
+  { id: 'gzip', run: b => (b[0] === 0x1f && b[1] === 0x8b) ? pako.ungzip(b) : null },
+  { id: 'zlib', run: b => (b[0] === 0x78 && [0x01,0x9c,0xda,0x5e].includes(b[1])) ? pako.inflate(b) : null },
+  { id: 'deflate-raw', run: b => { try { const o = pako.inflateRaw(b); return o.length ? o : null; } catch { return null; } } },
+  { id: 'base64', run: b => {
+      const s = trimmed(b).replace(/\s+/g, '');
+      if (s.length < 8 || s.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(s)) return null;
+      const out = b64d(s);
+      if (b64e(out).replace(/=+$/, '') !== s.replace(/=+$/, '')) return null;   // chống dương tính giả
+      return out;
+    } },
+  { id: 'base64url', run: b => {
+      const s = trimmed(b).replace(/\s+/g, '');
+      if (s.length < 8 || !/^[A-Za-z0-9\-_]+={0,2}$/.test(s) || !/[-_]/.test(s)) return null;
+      return b64uD(s);
+    } },
+  { id: 'hex', run: b => {
+      const s = trimmed(b).replace(/[\s:]/g, '').replace(/^0x/i, '');
+      if (s.length < 8 || s.length % 2 || !/^[0-9a-fA-F]+$/.test(s)) return null;
+      return hexD(s);
+    } },
+  { id: 'base32', run: b => {
+      const s = trimmed(b).replace(/\s+/g, '').toUpperCase().replace(/=+$/, '');
+      if (s.length < 8 || !/^[A-Z2-7]+$/.test(s)) return null;
+      let bits = 0, val = 0; const out = [];
+      for (const c of s) { const i = B32A.indexOf(c); if (i < 0) return null; val = val << 5 | i; bits += 5; if (bits >= 8) { out.push(val >>> (bits - 8) & 255); bits -= 8; } }
+      return out.length ? new Uint8Array(out) : null;
+    } },
+  { id: 'ascii85', run: b => {
+      let s = trimmed(b); if (!s.startsWith('<~') || !s.endsWith('~>')) return null;
+      s = s.slice(2, -2).replace(/\s+/g, ''); const out = [];
+      for (let i = 0; i < s.length;) {
+        if (s[i] === 'z') { out.push(0,0,0,0); i++; continue; }
+        const chunk = s.substr(i, 5); i += 5;
+        const pad = 5 - chunk.length; let n = 0;
+        for (const c of (chunk + 'uuuu'.slice(0, pad))) n = n * 85 + (c.charCodeAt(0) - 33);
+        const q = [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255];
+        out.push(...q.slice(0, 4 - pad));
+      }
+      return new Uint8Array(out);
+    } },
+  { id: 'url-encode', run: b => {
+      const s = str(b); if (!/%[0-9a-fA-F]{2}/.test(s)) return null;
+      try { return bytes(decodeURIComponent(s)); } catch { return null; }
+    } },
+  { id: 'html-entity', run: b => {
+      const s = str(b); if (!/&(#\d+|#x[0-9a-f]+|amp|lt|gt|quot|#39);/i.test(s)) return null;
+      const d = document.createElement('textarea'); d.innerHTML = s; return bytes(d.value);
+    } },
+  { id: 'json-unicode', run: b => {
+      const s = str(b); if (!/\\u[0-9a-fA-F]{4}/.test(s)) return null;
+      return bytes(s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))));
+    } },
+  { id: 'binary-bits', run: b => {
+      const s = trimmed(b).replace(/\s+/g, ''); if (s.length < 16 || s.length % 8 || !/^[01]+$/.test(s)) return null;
+      const out = new Uint8Array(s.length / 8);
+      for (let i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 8, 8), 2);
+      return out;
+    } },
+  { id: 'decimal', run: b => {
+      const s = trimmed(b); if (!/^(\d{1,3}[\s,;]+){3,}\d{1,3}$/.test(s)) return null;
+      const n = s.split(/[\s,;]+/).map(Number);
+      if (n.some(x => x > 255 || x < 0)) return null;
+      return new Uint8Array(n);
+    } },
+  { id: 'morse', run: b => {
+      const s = trimmed(b); if (!/^[.\-\s/|]+$/.test(s) || !/[.\-]/.test(s)) return null;
+      const words = s.split(/\s*[/|]\s*|\s{3,}/);
+      const out = words.map(w => w.trim().split(/\s+/).map(t => MORSE[t] || '').join('')).join(' ');
+      return out.replace(/\s/g, '') ? bytes(out) : null;
+    } },
+  { id: 'rot13', run: b => {
+      const s = str(b); if (!/[a-z]/i.test(s)) return null;
+      return bytes(s.replace(/[a-z]/gi, c => {
+        const base = c <= 'Z' ? 65 : 97;
+        return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+      }));
+    } },
+  { id: 'reverse', run: b => { const s = str(b); return s.length > 8 ? bytes([...s].reverse().join('')) : null; } },
+  { id: 'xor-1byte', run: b => {                     // dò khoá XOR 1 byte tốt nhất
+      if (b.length < 8) return null;
+      let best = null, bestScore = -1;
+      for (let k = 1; k < 256; k++) {
+        const o = new Uint8Array(b.length);
+        for (let i = 0; i < b.length; i++) o[i] = b[i] ^ k;
+        const sc = score(o);
+        if (sc > bestScore) { bestScore = sc; best = o; }
+      }
+      return bestScore > 55 ? best : null;
+    } },
+  { id: 'utf16le', run: b => {
+      if (b.length < 8 || b.length % 2) return null;
+      let zeros = 0; for (let i = 1; i < b.length; i += 2) if (b[i] === 0) zeros++;
+      if (zeros / (b.length / 2) < .8) return null;
+      return bytes(new TextDecoder('utf-16le').decode(b));
+    } }
+];
+
+function detectContent(b) {
+  const s = str(b).slice(0, 4000);
+  const sig = [
+    ['Gói OMNI2', () => eq(b.subarray(0, 5), MAGIC)],
+    ['JSON', () => /^\s*[[{]/.test(s) && (() => { try { JSON.parse(s); return true; } catch { return false; } })()],
+    ['HTML', () => /<!doctype html|<html[\s>]|<div[\s>]/i.test(s)],
+    ['XML', () => /^\s*<\?xml/i.test(s)],
+    ['C/C++', () => /#include\s*[<"]|std::|int\s+main\s*\(/.test(s)],
+    ['Python', () => /^\s*(def|class)\s+\w+.*:|import\s+\w+\s*$/m.test(s)],
+    ['JavaScript', () => /\b(function|const|let|=>)\b/.test(s) && /[;{}]/.test(s)],
+    ['Java/C#', () => /\b(public|private)\s+(static\s+)?(void|class|int|string)\b/i.test(s)],
+    ['SQL', () => /\bselect\b[\s\S]*\bfrom\b/i.test(s)],
+    ['Shell', () => /^#!.*\/(ba)?sh|^\s*(sudo|apt|chmod)\s/m.test(s)],
+    ['PowerShell', () => /\$\w+\s*=|Get-\w+|Invoke-\w+/.test(s)],
+    ['PDF', () => b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44],
+    ['PNG', () => b[0] === 0x89 && b[1] === 0x50],
+    ['ZIP', () => b[0] === 0x50 && b[1] === 0x4b],
+    ['Tiếng Việt', () => /[ăâêôơưđáàảãạéèẻíìúùýợộệ]/i.test(s)],
+    ['Văn bản', () => score(b) > 60]
+  ];
+  for (const [name, test] of sig) { try { if (test()) return name; } catch {} }
+  return 'nhị phân';
+}
+
+function omniDecode(input, maxDepth = 16) {
+  const chain = [{ id: 'gốc', data: input, score: score(input) }];
+  const seen = new Set([hexE(input.subarray(0, 64)) + input.length]);
+  let cur = input;
+
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const curScore = score(cur);
+    let best = null;
+    for (const c of CODECS) {
+      let out = null;
+      try { out = c.run(cur); } catch { out = null; }
+      if (!out || !out.length) continue;
+      const k = hexE(out.subarray(0, 64)) + out.length;
+      if (seen.has(k)) continue;
+      const sc = score(out);
+      if (!best || sc > best.score) best = { id: c.id, data: out, score: sc, key: k };
+    }
+    // Chỉ đi tiếp khi thật sự cải thiện, hoặc khi ra được gói OMNI2
+    const isPkg = best && eq(best.data.subarray(0, 5), MAGIC);
+    if (!best || (best.score <= curScore + 3 && !isPkg)) break;
+    seen.add(best.key);
+    chain.push(best);
+    cur = best.data;
+    if (isPkg) break;                    // dừng để lớp mật mã xử lý tiếp
+  }
+  return chain;
+}
+
+/* ---------- 6. Giao diện ---------- */
+const $ = id => document.getElementById(id);
+const toast = (msg, err = false) => {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast' + (err ? ' err' : ''), 3200);
+};
+function log(msg, cls = '') {
+  const d = document.createElement('div');
+  d.className = 'step ' + cls;
+  d.innerHTML = '<span>›</span> ' + msg;
+  $('log').appendChild(d); $('log').scrollTop = 1e9;
+}
+const clearLog = () => $('log').innerHTML = '';
+
+document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.mode-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  ['decode', 'aes', 'pqc'].forEach(m => $('mode-' + m).hidden = (m !== b.dataset.mode));
+}));
+
+function download(data, name, mime = 'application/octet-stream') {
+  const blob = new Blob([data], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('Đã sao chép'); }
+  catch { toast('Trình duyệt chặn clipboard', true); }
+}
+
+/* ----- Bóc tách ----- */
+let CHAIN = [], CHAIN_VIEW = 0;
+
+function renderChain() {
+  const box = $('chain'); box.innerHTML = '';
+  CHAIN.forEach((n, i) => {
+    const el = document.createElement('span');
+    el.className = 'chain-node' + (i === CHAIN_VIEW ? ' active' : '');
+    el.textContent = (i ? i + '. ' : '') + n.id;
+    el.onclick = () => { CHAIN_VIEW = i; renderChain(); showLayer(i); };
+    box.appendChild(el);
+  });
+}
+function showLayer(i) {
+  const d = CHAIN[i].data;
+  const s = str(d);
+  const printable = score(d) > 45;
+  $('dec-out').textContent = printable ? s.slice(0, 20000) : '[nhị phân · ' + d.length + ' byte]\n' + hexE(d.subarray(0, 512));
+}
+
+async function runDecode() {
+  clearLog();
+  const raw = $('dec-in').value;
+  if (!raw.trim()) { toast('Chưa có dữ liệu', true); return; }
+  let input = DEC_FILE_BYTES || bytes(raw);
+  log('Đầu vào: ' + input.length + ' byte, entropy ' + shannon(input).toFixed(2));
+
+  CHAIN = omniDecode(input);
+  CHAIN.slice(1).forEach((n, i) => log('Lớp ' + (i + 1) + ': ' + n.id + ' → điểm ' + n.score.toFixed(0), 'ok'));
+  let final = CHAIN[CHAIN.length - 1].data;
+
+  // Nếu chạm gói OMNI2 thì giải mã bằng mật khẩu
+  if (eq(final.subarray(0, 5), MAGIC)) {
+    const pass = $('dec-pass').value;
+    if (!pass) { log('Phát hiện gói OMNI2 — cần mật khẩu', 'fail'); toast('Nhập mật khẩu để mở gói', true); }
+    else {
+      log('Phát hiện gói OMNI2, đang dẫn xuất khoá…');
+      try {
+        const r = await unseal(final, { password: pass, kemSecKey: KEYS.kemSec, dsaPubKey: KEYS.dsaPub });
+        final = r.plain;
+        CHAIN.push({ id: r.suite === SUITE.HYBRID ? 'omni2-hybrid' : 'omni2-aes', data: final, score: score(final) });
+        log('Giải mã thành công · chữ ký: ' + r.signature, 'ok');
+        // Bóc tiếp nếu bên trong vẫn còn lớp encode
+        const more = omniDecode(final);
+        if (more.length > 1) { CHAIN.push(...more.slice(1)); final = more[more.length - 1].data; }
+      } catch (e) { log(e.message, 'fail'); toast(e.message, true); }
+    }
+  }
+
+  CHAIN_VIEW = CHAIN.length - 1;
+  renderChain(); showLayer(CHAIN_VIEW);
+  $('st-layers').textContent = CHAIN.length - 1;
+  const conf = score(final);
+  $('st-conf').textContent = conf.toFixed(0) + '%';
+  $('st-conf-pill').className = 'pill' + (conf > 75 ? ' certain' : '');
+  $('st-lang').textContent = detectContent(final);
+  $('dec-out').classList.remove('fail');
+  $('dec-out').classList.add('okflash');
+  setTimeout(() => $('dec-out').classList.remove('okflash'), 700);
+  log('Hoàn tất: ' + (CHAIN.length - 1) + ' lớp', 'ok');
+}
+
+let DEC_FILE_BYTES = null;
+$('btn-run').onclick = runDecode;
+$('btn-clear').onclick = () => { $('dec-in').value = ''; DEC_FILE_BYTES = null; CHAIN = []; $('chain').innerHTML = ''; $('dec-out').textContent = '[ chờ dữ liệu ]'; clearLog(); };
+$('btn-copy').onclick = () => copyText($('dec-out').textContent);
+$('btn-save').onclick = () => { if (CHAIN.length) download(CHAIN[CHAIN_VIEW].data, 'omni-layer-' + CHAIN_VIEW + '.bin'); };
+$('btn-sample').onclick = () => {
+  const src = '#include <iostream>\nint main(){ std::cout << "Xin chào OMNI"; return 0; }';
+  const gz = pako.gzip(bytes(src));
+  $('dec-in').value = b64e(gz);          // base64( gzip( C++ ) ) — 2 lớp
+  DEC_FILE_BYTES = null;
+  toast('Đã nạp mẫu: base64 → gzip → C++');
+};
+$('btn-file').onclick = () => $('dec-file').click();
+$('dec-file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  DEC_FILE_BYTES = new Uint8Array(await f.arrayBuffer());
+  $('dec-in').value = '[file] ' + f.name + ' · ' + DEC_FILE_BYTES.length + ' byte';
+  toast('Đã nạp ' + f.name);
+};
+const dz = $('dec-in');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dropping'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dropping'));
+dz.addEventListener('drop', async e => {
+  e.preventDefault(); dz.classList.remove('dropping');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  DEC_FILE_BYTES = new Uint8Array(await f.arrayBuffer());
+  dz.value = '[file] ' + f.name + ' · ' + DEC_FILE_BYTES.length + ' byte';
+});
+$('dec-in').addEventListener('input', () => DEC_FILE_BYTES = null);
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    const active = document.querySelector('.mode-btn.active').dataset.mode;
+    ({ decode: runDecode, aes: () => $('aes-enc').click(), pqc: () => $('pqc-enc').click() })[active]();
+  }
+});
+
+/* ----- Đo độ mạnh mật khẩu (ước lượng entropy, không phải điểm marketing) ----- */
+function pwEntropy(p) {
+  if (!p) return 0;
+  let pool = 0;
+  if (/[a-z]/.test(p)) pool += 26;
+  if (/[A-Z]/.test(p)) pool += 26;
+  if (/[0-9]/.test(p)) pool += 10;
+  if (/[^a-zA-Z0-9]/.test(p)) pool += 33;
+  let bits = p.length * Math.log2(pool || 1);
+  if (/^(.)\1+$/.test(p)) bits *= .3;                     // lặp một ký tự
+  if (/(1234|abcd|qwer|password|admin|1111)/i.test(p)) bits *= .4;
+  return bits;
+}
+function renderPw() {
+  const p = $('aes-pass').value, b = pwEntropy(p);
+  const pct = Math.min(100, b / 128 * 100);
+  const bar = $('pw-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = b < 50 ? 'var(--danger)' : b < 80 ? 'var(--gold)' : 'var(--primary)';
+  $('pw-note').textContent = p ? `~${b.toFixed(0)} bit entropy · ${b < 50 ? 'yếu' : b < 80 ? 'khá' : 'mạnh'}` : '—';
+}
+$('aes-pass').addEventListener('input', renderPw);
+$('aes-eye').onclick = () => { const i = $('aes-pass'); i.type = i.type === 'password' ? 'text' : 'password'; };
+$('aes-gen').onclick = () => {
+  const cs = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_=+';
+  const r = rnd(24);
+  $('aes-pass').value = [...r].map(x => cs[x % cs.length]).join('');
+  $('aes-pass').type = 'text'; renderPw(); toast('Đã sinh mật khẩu 24 ký tự');
+};
+
+/* ----- AES ----- */
+let AES_FILE = null;
+async function doAes(encrypt) {
+  const pass = $('aes-pass').value;
+  if (!pass) { toast('Nhập mật khẩu', true); return; }
+  const out = $('aes-out'); out.classList.remove('fail');
+  out.textContent = encrypt ? 'Đang dẫn xuất khoá…' : 'Đang mở gói…';
+  try {
+    if (encrypt) {
+      const data = AES_FILE ? AES_FILE.data : bytes($('aes-in').value);
+      if (!data.length) throw new Error('Chưa có nội dung');
+      const pkg = await seal(data, {
+        password: pass, compress: $('aes-compress').checked, profile: $('aes-kdf').value
+      });
+      LAST_OUT = pkg;
+      out.textContent = b64e(pkg);
+      toast('Đã mã hoá · ' + pkg.length + ' byte');
+    } else {
+      const src = AES_FILE ? AES_FILE.data : b64d($('aes-in').value.trim().replace(/\s+/g, ''));
+      const r = await unseal(src, { password: pass });
+      LAST_OUT = r.plain;
+      out.textContent = score(r.plain) > 45 ? str(r.plain) : '[nhị phân · ' + r.plain.length + ' byte]';
+      toast('Đã giải mã');
+    }
+  } catch (e) { out.classList.add('fail'); out.textContent = e.message; toast(e.message, true); }
+}
+let LAST_OUT = null;
+$('aes-enc').onclick = () => doAes(true);
+$('aes-dec').onclick = () => doAes(false);
+$('aes-copy').onclick = () => copyText($('aes-out').textContent);
+$('aes-save').onclick = () => LAST_OUT && download(LAST_OUT, 'omni-output.bin');
+$('aes-file-enc').onclick = () => $('aes-file').click();
+$('aes-file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  AES_FILE = { name: f.name, data: new Uint8Array(await f.arrayBuffer()) };
+  $('aes-in').value = '[file] ' + f.name + ' · ' + AES_FILE.data.length + ' byte';
+  toast('Đã nạp file — bấm Mã hoá hoặc Giải mã');
+};
+$('aes-in').addEventListener('input', () => AES_FILE = null);
+
+/* ----- PQC ----- */
+const KEYS = { kemPub: null, kemSec: null, dsaPub: null, dsaSec: null };
+if (!PQC_OK) ['kem-gen','kem-exp','kem-imp','dsa-gen','dsa-exp','dsa-imp','pqc-enc','pqc-dec']
+  .forEach(id => $(id).disabled = true);
+
+const shortKey = b => b64uE(b).slice(0, 88) + '… (' + b.length + ' byte)';
+$('kem-gen').onclick = () => {
+  const k = mlKem.keygen();
+  KEYS.kemPub = k.publicKey; KEYS.kemSec = k.secretKey;
+  $('kem-pub').textContent = shortKey(k.publicKey); $('kem-pub').className = 'keybox filled';
+  toast('Đã sinh khoá ML-KEM-1024');
+};
+$('dsa-gen').onclick = () => {
+  const seed = rnd(32);
+  const k = mlDsa.keygen(seed); wipe(seed);
+  KEYS.dsaPub = k.publicKey; KEYS.dsaSec = k.secretKey;
+  $('dsa-pub').textContent = shortKey(k.publicKey); $('dsa-pub').className = 'keybox filled';
+  toast('Đã sinh khoá ML-DSA-87');
+};
+const expKeys = (pub, sec, name) => {
+  if (!pub) { toast('Chưa có khoá', true); return; }
+  download(JSON.stringify({ alg: name, publicKey: b64uE(pub), secretKey: b64uE(sec) }, null, 2),
+           name + '-keypair.json', 'application/json');
+  toast('Đã xuất — giữ file này thật kỹ');
+};
+$('kem-exp').onclick = () => expKeys(KEYS.kemPub, KEYS.kemSec, 'ml-kem-1024');
+$('dsa-exp').onclick = () => expKeys(KEYS.dsaPub, KEYS.dsaSec, 'ml-dsa-87');
+
+function importKeys(kind) {
+  const inp = $('hidden-import');
+  inp.onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text());
+      const pub = b64uD(j.publicKey), sec = j.secretKey ? b64uD(j.secretKey) : null;
+      if (kind === 'kem') { KEYS.kemPub = pub; KEYS.kemSec = sec; $('kem-pub').textContent = shortKey(pub); $('kem-pub').className = 'keybox filled'; }
+      else { KEYS.dsaPub = pub; KEYS.dsaSec = sec; $('dsa-pub').textContent = shortKey(pub); $('dsa-pub').className = 'keybox filled'; }
+      toast('Đã nhập khoá');
+    } catch { toast('File khoá không hợp lệ', true); }
+    inp.value = '';
+  };
+  inp.click();
+}
+$('kem-imp').onclick = () => importKeys('kem');
+$('dsa-imp').onclick = () => importKeys('dsa');
+$('pqc-wipe').onclick = () => {
+  Object.keys(KEYS).forEach(k => { wipe(KEYS[k]); KEYS[k] = null; });
+  $('kem-pub').textContent = 'chưa có khoá công khai'; $('kem-pub').className = 'keybox';
+  $('dsa-pub').textContent = 'chưa có khoá công khai'; $('dsa-pub').className = 'keybox';
+  toast('Đã xoá khoá khỏi bộ nhớ');
+};
+
+let PQC_LAST = null;
+$('pqc-enc').onclick = async () => {
+  const out = $('pqc-out'); out.classList.remove('fail');
+  const pass = $('pqc-pass').value;
+  if (!KEYS.kemPub) { toast('Cần khoá công khai ML-KEM', true); return; }
+  if (!pass) { toast('Cần mật khẩu cho lớp thứ hai', true); return; }
+  if ($('pqc-sign').checked && !KEYS.dsaSec) { toast('Cần khoá bí mật ML-DSA để ký', true); return; }
+  out.textContent = 'Đang đóng gói lai…';
+  try {
+    const pkg = await seal(bytes($('pqc-in').value), {
+      password: pass, kemPubKey: KEYS.kemPub,
+      dsaSecKey: $('pqc-sign').checked ? KEYS.dsaSec : null,
+      compress: $('pqc-compress').checked, profile: 'balanced'
+    });
+    PQC_LAST = pkg; out.textContent = b64e(pkg);
+    toast('Đã mã hoá lai · ' + pkg.length + ' byte');
+  } catch (e) { out.classList.add('fail'); out.textContent = e.message; toast(e.message, true); }
+};
+$('pqc-dec').onclick = async () => {
+  const out = $('pqc-out'); out.classList.remove('fail');
+  out.textContent = 'Đang mở gói…';
+  try {
+    const src = b64d($('pqc-in').value.trim().replace(/\s+/g, ''));
+    const r = await unseal(src, { password: $('pqc-pass').value, kemSecKey: KEYS.kemSec, dsaPubKey: KEYS.dsaPub });
+    PQC_LAST = r.plain;
+    out.textContent = str(r.plain) + '\n\n— chữ ký: ' + r.signature;
+    toast('Đã giải mã · chữ ký ' + r.signature);
+  } catch (e) { out.classList.add('fail'); out.textContent = e.message; toast(e.message, true); }
+};
+$('pqc-copy').onclick = () => copyText($('pqc-out').textContent);
+$('pqc-save').onclick = () => PQC_LAST && download(PQC_LAST, 'omni-pqc.bin');
+
+log('Backend: ' + (argon2id ? 'Argon2id' : 'PBKDF2') + ' · PQC ' + (PQC_OK ? 'sẵn sàng' : 'tắt'), PQC_OK ? 'ok' : 'fail');
+</script>
+</body>
+</html>
